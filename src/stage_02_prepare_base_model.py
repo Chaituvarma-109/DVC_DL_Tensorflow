@@ -1,10 +1,11 @@
 from src.utils.all_utils import read_yaml, create_directory
-from src.utils.models import get_VGG_16_model
+from src.utils.models import get_VGG_16_model, prepare_model
 import argparse
 import pandas as pd
 import os
 import shutil
 import logging
+import io
 
 from tqdm import tqdm
 
@@ -41,13 +42,35 @@ def prepare_base_model(config_path, params_path):
 
     model = get_VGG_16_model(input_shape=params["IMAGE_SIZE"], model_path=base_model_path)
 
+    full_model = prepare_model(
+        model,
+        CLASSES=params['CLASSES'],
+        freeze_all=False,  # default = True
+        freeze_till=1,  # default = None
+        learning_rate=params['LEARNING_RATE']
+    )
+
+    update_base_model_path = os.path.join(
+        base_model_dir_path,
+        artifacts["UPDATED_BASE_MODEL_NAME"]
+    )
+
+    def _log_model_summary(full_model):
+        with io.StringIO() as stream:
+            full_model.summary(print_fn=lambda x: stream.write(f"{x}\n"))
+            summary_str = stream.getvalue()
+        return summary_str
+
+    logging.info(f"full model summary: \n{_log_model_summary(full_model)}")
+
+    full_model.save(update_base_model_path)
 
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser()
 
     args.add_argument("--config", "-c", default="config/config.yaml")
-    args.add_argument("--config", "-p", default="params.yaml")
+    args.add_argument("--params", "-p", default="params.yaml")
 
     parsed_args = args.parse_args()
 
